@@ -57,7 +57,7 @@ header {
   padding: 2rem;
   gap: 2rem;
   flex-grow: 1;
-  overflow: hidden; /* prevent content from overflowing */
+  /* overflow: hidden; */ /* prevent content from overflowing */
 }
 
 .left-panel {
@@ -87,6 +87,10 @@ header {
 .side-nav a:hover {
   background-color: rgba(0, 255, 0, 0.2);
   text-shadow: 0 0 5px #0f0;
+}
+
+main {
+  overflow-y: auto;
 }
 
 main a {
@@ -139,10 +143,10 @@ main a:hover {
   position: fixed;
   top: 16px;
   right: 16px;
-  background: rgba(0, 255, 0, 0.1);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 255, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 15px;
   padding: 1rem;
   display: flex;
@@ -160,8 +164,8 @@ main a:hover {
 }
 
 #run-button {
-  padding: 10px 30px;
-  font-size: 1.5em;
+  padding: 8px 20px;
+  font-size: 1.2em;
   background-color: rgba(0, 255, 0, 0.2);
   border: 1px solid rgba(0, 255, 0, 0.5);
   color: #0f0;
