@@ -453,6 +453,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (isWebGL) {
     renderer = setupWebGL();
+    if (renderer) {
+      resolutionContainer.style.display = "none";
+    }
   } else {
     resolutionContainer.style.display = "block";
     renderer = setup2D();

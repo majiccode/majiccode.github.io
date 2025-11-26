@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Live Coding</title>
     <link rel="stylesheet" href="../style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap"
       rel="stylesheet"
@@ -12,7 +18,21 @@
   </head>
   <body>
     <canvas id="live-coding-canvas"></canvas>
-    <textarea id="live-coding-editor" spellcheck="false">
+    <header>
+      <div class="logo">.codebase</div>
+    </header>
+    <div class="container">
+      <aside class="left-panel">
+        <nav class="side-nav">
+          <a href="../index.html#/">Home</a>
+          <a href="../index.html#/about">About</a>
+          <a href="../index.html#/contact">Contact</a>
+          <a href="../index.html#/projects">Projects</a>
+          <a href="live-coding.html">Live Coding</a>
+        </nav>
+      </aside>
+      <main id="app" class="live-coding-main">
+        <textarea id="live-coding-editor" spellcheck="false">
 function main(x, y, width, height, time) {
   // Create a rotation matrix
   const angle = time * 0.5;
@@ -31,46 +51,40 @@ function main(x, y, width, height, time) {
 
   return vec4(r, g, b, 1.0);
 }</textarea
-    >
-    <button id="run-button">Run</button>
-    <div
-      id="preset-container"
-      style="position: fixed; bottom: 60px; left: 16px"
-    >
-      <div class="control-group">
-        <label for="preset-select">Presets:</label>
-        <select id="preset-select"></select>
+        >
+      </main>
+    </div>
+
+    <div id="live-coding-controls">
+      <button id="run-button">Run</button>
+      <div id="preset-container">
+        <div class="control-group">
+          <label for="preset-select">Presets:</label>
+          <select id="preset-select"></select>
+        </div>
+        <div
+          id="resolution-container"
+          class="control-group"
+          style="display: none"
+        >
+          <label for="resolution-select">Resolution:</label>
+          <select id="resolution-select">
+            <option value="1">Full</option>
+            <option value="0.5" selected>Half</option>
+            <option value="0.25">Quarter</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="mode-toggle">Use WebGL:</label>
+          <input type="checkbox" id="mode-toggle" />
+        </div>
       </div>
       <div
-        id="resolution-container"
-        class="control-group"
-        style="display: none"
+        id="loading-indicator"
+        style="display: none; color: white; font-family: 'VT323', monospace"
       >
-        <label for="resolution-select">Resolution:</label>
-        <select id="resolution-select">
-          <option value="1">Full</option>
-          <option value="0.5" selected>Half</option>
-          <option value="0.25">Quarter</option>
-        </select>
+        Compiling...
       </div>
-      <div class="control-group">
-        <label for="mode-toggle">Use WebGL:</label>
-        <input type="checkbox" id="mode-toggle" />
-      </div>
-    </div>
-    <div
-      id="loading-indicator"
-      style="
-        display: none;
-        position: fixed;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: white;
-        font-family: 'VT323', monospace;
-      "
-    >
-      Compiling...
     </div>
 
     <div id="help-dialog" class="modal-overlay">
