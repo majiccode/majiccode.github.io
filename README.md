@@ -1,0 +1,1 @@
+# majiccode.github.io
