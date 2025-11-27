@@ -288,3 +288,79 @@ main a:hover {
   font-size: 1.2rem;
   line-height: 1.6;
 }
+
+.project-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.project-gallery img {
+  width: 100%;
+  height: auto;
+  border: 1px solid #0f0;
+  border-radius: 5px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 4em;
+    text-align: center;
+  }
+
+  .container {
+    flex-direction: column;
+    padding: 1rem;
+    margin-top: 70px; /* Adjust for fixed header */
+  }
+
+  .left-panel {
+    display: none; /* Hide by default on mobile */
+    width: 100%;
+    position: absolute;
+    top: 70px;
+    left: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .left-panel.active {
+    display: block;
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .side-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .side-nav a {
+    font-size: 1.2rem;
+    margin: 0.5rem;
+  }
+
+  #live-coding-controls {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
+    box-sizing: border-box;
+  }
+
+  .modal-content {
+    width: 90%;
+  }
+}

@@ -4,6 +4,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="img-src 'self' https://github.com https://raw.githubusercontent.com;"
+    />
     <title>CODEBASE</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,6 +25,11 @@
     <canvas id="fullscreen-matrix-canvas"></canvas>
     <header>
       <div class="logo">.codebase</div>
+      <button class="menu-toggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
     </header>
     <div class="container">
       <aside class="left-panel">
@@ -37,5 +46,6 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="ui.js"></script>
   </body>
 </html>
