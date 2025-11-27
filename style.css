@@ -335,6 +335,9 @@ main a:hover {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .menu-toggle {
+    display: block;
+  }
   header {
     display: flex;
     justify-content: space-between;
@@ -365,10 +368,6 @@ main a:hover {
   }
 
   .left-panel.active {
-    display: block;
-  }
-
-  .menu-toggle {
     display: block;
   }
 
