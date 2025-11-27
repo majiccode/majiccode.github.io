@@ -15,7 +15,7 @@ const shaderPresets = {
   const g = 0.5 + 0.5 * sin(time * 1.0 + uv.y * 10.0);
   const b = 0.5 + 0.5 * cos(time * 3.0 + (uv.x + uv.y) * 5.0);
 
-  return vec4(r, g, b, 1.0);
+  return vec4(0, g*0.2, 0, 1.0);
 }`,
 
   "Raytraced Sphere": `function main(x, y, width, height, time) {

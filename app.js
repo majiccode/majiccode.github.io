@@ -187,15 +187,29 @@ const matrixEffect = (canvasId, containerSelector) => {
   const columns = canvas.width / font_size;
   const drops = [];
 
+  let beginMatrixEffect = true;
   for (let x = 0; x < columns; x++) {
     drops[x] = 1;
   }
+  for (let i = 0; i < drops.length; i++) {
+    drops[i] = canvas.height / font_size;
+  }
+
+  let frame = 0;
+  let hideIniitalEffect = true;
 
   function draw() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#0F0";
+    if (hideIniitalEffect) frame++;
+
+    //if (frame > drops.length) {
+    //  hideIniitalEffect = false;
+    ctx.fillStyle = "rgba(3, 94, 3, 1)";
+    //} else {
+    //  ctx.fillStyle = "rgba(210, 15, 15, 1)";
+    //}
     ctx.font = font_size + "px arial";
 
     for (let i = 0; i < drops.length; i++) {
