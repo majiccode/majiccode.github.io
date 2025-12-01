@@ -153,15 +153,18 @@ main a:hover {
 #live-coding-editor {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: 400px;
   background-color: rgba(0, 0, 0, 0.5);
   color: white;
   border: 1px solid black;
-  padding: 20px;
-  font-size: 1.2em;
-  resize: none;
+  padding: 4px;
   outline: none;
   box-sizing: border-box;
+  font-family: "Courier New", monospace; /* Fixed-size font */
+  font-size: 16px; /* Character size */
+  line-height: 20px; /* Ensuring enough height per line */
+  resize: none; /* Prevent resizing */
+  white-space: pre; /* Preserve whitespace */
 }
 
 .live-coding-main {
@@ -422,5 +425,14 @@ main a:hover {
 
   .modal-content {
     width: 90%;
+  }
+
+  #slider-popup {
+    display: none;
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    padding: 10px;
+    z-index: 100;
   }
 }

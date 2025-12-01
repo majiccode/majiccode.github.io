@@ -32,26 +32,19 @@
         </nav>
       </aside>
       <main id="app" class="live-coding-main">
-        <textarea id="live-coding-editor" spellcheck="false">
-function main(x, y, width, height, time) {
-  // Create a rotation matrix
-  const angle = time * 0.5;
-  const rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
-
-  // Normalize coordinates and apply rotation
-  let uv = sub(vec2(x, y), vec2(width / 2, height / 2));
-  uv = mult(rot, uv);
-  uv = add(uv, vec2(width / 2, height / 2));
-  uv = div(uv, vec2(width, height));
-
-  // Animate colors
-  const r = 0.5 + 0.5 * cos(time * 2.0 + uv.x * 10.0);
-  const g = 0.5 + 0.5 * sin(time * 1.0 + uv.y * 10.0);
-  const b = 0.5 + 0.5 * cos(time * 3.0 + (uv.x + uv.y) * 5.0);
-
-  return vec4(r, g, b, 1.0);
-}</textarea
-        >
+        <canvas id="offscreenCanvas" style="display: none"></canvas>
+        <textarea id="live-coding-editor" spellcheck="false"> </textarea>
+        <div id="slider-popup">
+          <label for="slider">Adjust value: </label>
+          <input
+            type="range"
+            id="slider"
+            min="0"
+            max="1"
+            step="0.1"
+            value="0.3"
+          />
+        </div>
       </main>
     </div>
 

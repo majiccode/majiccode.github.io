@@ -18,6 +18,135 @@ document.addEventListener("DOMContentLoaded", () => {
   const helpDialog = document.getElementById("help-dialog");
   const helpContent = document.getElementById("help-content");
   const closeHelpButton = document.getElementById("close-help");
+  const slider = document.getElementById("slider");
+  const sliderPopup = document.getElementById("slider-popup");
+
+  const maxRows = Math.floor(editor.getBoundingClientRect().height / 16); // Assuming 16px line height
+  const maxCols = Math.floor(editor.getBoundingClientRect().width / 10); // Assuming 10px character width
+  const charGrid = [];
+  const ctx = document.getElementById("offscreenCanvas").getContext("2d");
+  ctx.font = "16px 'Courier New'"; // Set the font in the canvas for accurate measurements
+
+  function updateGrid() {
+    const textarea = editor;
+    const text = textarea.value.split("\n");
+    const maxCols = Math.floor(
+      textarea.clientWidth / ctx.measureText("M").width
+    ); // Number of columns based on width
+
+    const charGrid = text.map((line) => {
+      const trimmedLine = line.substring(0, maxCols); // Get appropriate segment of the line
+      return Array.from(trimmedLine).concat(
+        Array(maxCols - trimmedLine.length).fill(" ")
+      ); // Pad with spaces
+    });
+
+    return charGrid; // Return the character grid
+  }
+
+  editor.addEventListener("mousemove", (event) => {
+    const textarea = editor;
+    const mouseX = event.clientX - textarea.getBoundingClientRect().left;
+    const mouseY = event.clientY - textarea.getBoundingClientRect().top;
+
+    // Adjust for the scroll position
+    const adjustedMouseY = mouseY + textarea.scrollTop;
+
+    const charGrid = updateGrid(); // Get the updated character grid
+    const maxCols = charGrid[0].length;
+    const targetRow = Math.floor(adjustedMouseY / 20); // Use adjusted height to find the target row
+
+    if (targetRow < charGrid.length) {
+      let charIndex = 0;
+      let accumulatedWidth = 0;
+      const actualRow = charGrid[targetRow];
+
+      // Measure character widths using the offscreen canvas
+      for (let i = 0; i < maxCols; i++) {
+        const char = actualRow[i];
+        const charWidth = ctx.measureText(char || " ").width; // Measure character widths
+        accumulatedWidth += charWidth;
+
+        if (accumulatedWidth > mouseX) {
+          charIndex = i; // Found relevant character index
+          break;
+        }
+      }
+
+      let start = charIndex;
+      let end = charIndex;
+
+      // Expand left
+      while (start > 0 && actualRow[start - 1] !== " ") {
+        start--;
+      }
+
+      // Expand right
+      while (end < maxCols - 1 && actualRow[end + 1] !== " ") {
+        end++;
+      }
+
+      const wordUnderCursor = actualRow
+        .slice(start, end + 1)
+        .join("")
+        .trim();
+
+      if (wordUnderCursor.length > 0) {
+        //console.log("Word under cursor: ", wordUnderCursor);
+
+        //  const regex = /([-+]?(?:0x[a-fA-F0-9]+|\d*\.?\d+))\s*\/\*\[(.*?)\]\*\//;
+        const regex =
+          /([-+]?(?:0x[a-fA-F0-9]+|#?[a-fA-F0-9]+|\d*\.?\d+))\s*\/\*\[(.*?)\]\*\//;
+
+        const match = wordUnderCursor.match(regex);
+        if (match) {
+          const value = match[1]; // The extracted number as a string (e.g., "0.3")
+          const rangeString = match[2]; // The extracted range string (e.g., "0..1")
+          console.log("rangeString:", rangeString);
+          const boundaries = rangeString.split(/(\.{2}|-|,)/);
+          // Filter out the delimiters themselves and empty strings
+          // const filteredBoundaries = boundaries.filter(
+          //   (item) => item && !/(\.{2}|-|,)/.test(item)
+          // );
+          const rangeMatch = rangeString.match(
+            /^\s*([-+]?\d+)\s*\.\.\s*([-+]?\d+)\s*$/
+          );
+          if (rangeMatch) {
+            let min;
+            let max;
+            // Parse the strings into numbers
+            const val1 = convertHexOrFloat(rangeMatch[1]);
+            const val2 = convertHexOrFloat(rangeMatch[2]);
+
+            // Ensure min is always the smaller number and max is the larger number
+            min = Math.min(val1, val2);
+            max = Math.max(val1, val2);
+            const numericValue = convertHexOrFloat(value);
+            console.log(`Minimum Value (min): ${min}`);
+            console.log(`Maximum Value (max): ${max}`);
+            console.log("Numeric Value:", numericValue);
+          }
+        }
+      }
+    }
+  });
+  function convertHexOrFloat(valString) {
+    if (valString.startsWith("0x")) {
+      // Handle 0x hex format (e.g., 0xFF)
+      return parseInt(valString, 16);
+    } else if (valString.startsWith("#")) {
+      // Return colors as strings (e.g., #A4B2C0)
+      return valString;
+    } else {
+      // Handle standard floats/integers (e.g., 0.3, 100)
+      // parseFloat works well for both ints and floats
+      return parseFloat(valString);
+    }
+  }
+
+  editor.addEventListener("mouseleave", () => {
+    sliderPopup.style.display = "none"; // Hide the slider when mouse leaves
+  });
 
   // --- State ---
   let animationFrameId;

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Popup Slider Near Cursor</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #popup {
+        display: none;
+        position: absolute;
+        border: 1px solid #ccc;
+        background-color: white;
+        padding: 10px;
+        box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+      }
+      .popup-button {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Click to Show Popup</h1>
+
+    <div id="popup">
+      <label for="slider">Adjust Value:</label>
+      <input type="range" id="slider" min="0" max="100" />
+      <div class="popup-button">
+        <button id="okBtn">OK</button>
+        <button id="closeBtn">Close</button>
+      </div>
+    </div>
+
+    <script>
+      const popup = document.getElementById("popup");
+      const okBtn = document.getElementById("okBtn");
+      const closeBtn = document.getElementById("closeBtn");
+
+      document.addEventListener("click", (event) => {
+        // Show the popup only on left mouse button click
+        if (event.button === 0 && popup.style.display !== "block") {
+          // 0 indicates left mouse button
+          popup.style.display = "block";
+          // Position the popup next to the cursor, with a slight offset
+          popup.style.left = event.pageX + 10 + "px";
+          popup.style.top = event.pageY + 10 + "px";
+        }
+      });
+
+      // Event listener for closing the popup
+      closeBtn.addEventListener("click", () => {
+        popup.style.display = "none"; // Close the popup
+      });
+
+      okBtn.addEventListener("click", () => {
+        const sliderValue = document.getElementById("slider").value;
+        alert("Slider Value: " + sliderValue); // Show alert with slider value
+        popup.style.display = "none"; // Close the popup
+      });
+
+      // Prevent the popup from closing when clicking inside of it
+      popup.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+    </script>
+  </body>
+</html>

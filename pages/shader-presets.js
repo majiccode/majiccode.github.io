@@ -9,7 +9,7 @@ const shaderPresets = {
   uv = mult(rot, uv);
   uv = add(uv, vec2(width / 2, height / 2));
   uv = div(uv, vec2(width, height));
-
+  const val = 0.3/*[0..1]*/;
   // Animate colors
   const r = 0.5 + 0.5 * cos(time * 2.0 + uv.x * 10.0);
   const g = 0.5 + 0.5 * sin(time * 1.0 + uv.y * 10.0);
