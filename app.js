@@ -157,6 +157,18 @@ const matrixEffect = (canvasId, containerSelector) => {
   canvas.height = container.offsetHeight;
 
   const matrix = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%";
+  const sparkleText = [
+    "code",
+    "hack",
+    "0xFF",
+    "0x90",
+    "xor",
+    "eax",
+    "lulz",
+    "pwn",
+  ];
+
+  const vec2 = (x, y) => ({ x, y });
   const font_size = 10;
 
   const circle_buffer_width = canvas.width / font_size;
@@ -164,11 +176,12 @@ const matrixEffect = (canvasId, containerSelector) => {
   const columns = canvas.width / font_size;
   const drops = [];
   const particles = [];
+  const lines = [];
   const circle_buffer = new Int8Array(
     circle_buffer_width * circle_buffer_height
   );
 
-  const maxParticles = 6;
+  const maxParticles = 12;
 
   for (let x = 0; x < columns; x++) {
     drops[x] = 1;
@@ -180,8 +193,8 @@ const matrixEffect = (canvasId, containerSelector) => {
     particles.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      radius: Math.random() * 50 + 75,
-      speed: Math.random() * 4,
+      radius: Math.random() * 170 + 25,
+      speed: Math.random() * 6,
       dir: vec2(Math.random() - 0.5, Math.random() - 0.5),
     });
   }
@@ -267,7 +280,6 @@ const matrixEffect = (canvasId, containerSelector) => {
   }
 
   function drawCicleBuffer() {
-    ctx.fillStyle = "rgba(3, 94, 3, 1)";
     for (let y = 0; y < circle_buffer_height; y++) {
       for (let x = 0; x < circle_buffer_width; x++) {
         const index = (y * circle_buffer_width + x) | 0;
@@ -276,12 +288,21 @@ const matrixEffect = (canvasId, containerSelector) => {
         if (circle_buffer[index] > 0) {
           ctx.fillStyle = "rgba(0, 0, 0, 1)";
           ctx.fillRect(xx, yy, font_size, font_size);
-          ctx.fillStyle = "rgba(5, 130, 5, 1)";
+          if (circle_buffer[index] === 2) {
+            ctx.fillStyle = "rgba(122, 5, 5, 1)";
+          } else {
+            ctx.fillStyle = "rgba(5, 130, 5, 1)";
+          }
+
           const text = matrix[Math.floor(Math.random() * matrix.length)];
           ctx.fillText(text, xx, yy + font_size);
         }
       }
     }
+  }
+
+  function rndInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   function draw(deltaTime) {
@@ -290,6 +311,7 @@ const matrixEffect = (canvasId, containerSelector) => {
 
     // Set the fill color to green
     ctx.fillStyle = "green";
+    ctx.font = font_size + "px arial";
 
     circle_buffer.fill(0);
 
@@ -302,19 +324,37 @@ const matrixEffect = (canvasId, containerSelector) => {
       bresenhamCircle(p.x, p.y, p.radius);
       if (Math.random() < 0.01) {
         p.dir = vec2(Math.random() - 0.5, Math.random() - 0.5);
+        p.radius = Math.random() * 100 + 25;
       }
-      // if (i > 0) {
-      //   line(
-      //     particles[i - 1].x,
-      //     particles[i - 1].y,
-      //     particles[i].x,
-      //     particles[i].y
-      //   );
-      // }
+      if (rndInt(0, 1000) < 5) {
+        p.radius += Math.random() * 50 - 25;
+      }
+
+      if (rndInt(0, 1000) < 10) {
+        ctx.fillStyle = "rgba(233, 241, 244, 1)";
+        ctx.fillText(sparkleText[rndInt(0, sparkleText.length - 1)], p.x, p.y);
+      }
+    }
+
+    if (lines.length === 0 && rndInt(0, 100) < 10) {
+      const numLines = rndInt(2, maxParticles);
+      for (let i = 0; i < numLines; i++) {
+        lines.push(rndInt(0, maxParticles - 1));
+      }
+    }
+
+    if (lines.length >= 2) {
+      for (let i = 0; i < lines.length - 1; i++) {
+        const p1 = particles[lines[i]];
+        const p2 = particles[lines[i + 1]];
+        line(p1.x, p1.y, p2.x, p2.y);
+      }
+      if (rndInt(0, 1000) < 20) {
+        lines.length = 0;
+      }
     }
 
     ctx.fillStyle = "rgba(3, 94, 3, 1)";
-    ctx.font = font_size + "px arial";
 
     drawCicleBuffer();
     for (let i = 0; i < drops.length; i++) {
@@ -330,9 +370,22 @@ const matrixEffect = (canvasId, containerSelector) => {
       const index = (cy * circle_buffer_width + cx) | 0;
       if (circle_buffer[index] === 1) {
         ctx.fillStyle = "rgba(18, 215, 202, 1)";
-        ctx.fillText("code", tx, ty);
-        ctx.fillText("base", tx + font_size, ty + font_size);
-        ctx.fillText("hack", tx - font_size, ty + font_size);
+        ctx.fillText(sparkleText[rndInt(0, sparkleText.length - 1)], tx, ty);
+        ctx.fillText(
+          sparkleText[rndInt(0, sparkleText.length - 1)],
+          tx + font_size,
+          ty + font_size
+        );
+        ctx.fillText(
+          sparkleText[rndInt(0, sparkleText.length - 1)],
+          tx - font_size,
+          ty + font_size
+        );
+      }
+      if (circle_buffer[index] === 2) {
+        ctx.fillStyle = "rgba(215, 18, 18, 1)";
+        ctx.fillText("FF", tx + font_size, ty + font_size);
+        ctx.fillText("90", tx - font_size, ty + font_size);
       }
       ctx.fillStyle = "rgba(3, 94, 3, 1)";
 
