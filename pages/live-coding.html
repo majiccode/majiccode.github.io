@@ -34,18 +34,13 @@
       <main id="app" class="live-coding-main">
         <canvas id="offscreenCanvas" style="display: none"></canvas>
         <textarea id="live-coding-editor" spellcheck="false"> </textarea>
-        <div id="slider-popup">
-          <label for="slider">Adjust value: </label>
-          <input
-            type="range"
-            id="slider"
-            min="0"
-            max="1"
-            step="0.1"
-            value="0.3"
-          />
-        </div>
       </main>
+    </div>
+
+    <div id="slider-popup">
+      <label for="slider">Adjust value: </label>
+      <input type="range" id="slider" min="0" max="1" step="0.1" value="0.3" />
+      <span id="slider-value"></span>
     </div>
 
     <div id="live-coding-controls">

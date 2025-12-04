@@ -20,6 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeHelpButton = document.getElementById("close-help");
   const slider = document.getElementById("slider");
   const sliderPopup = document.getElementById("slider-popup");
+  const sliderValueLabel = document.getElementById("slider-value");
+
+  let activePattern = null;
 
   const maxRows = Math.floor(editor.getBoundingClientRect().height / 16); // Assuming 16px line height
   const maxCols = Math.floor(editor.getBoundingClientRect().width / 10); // Assuming 10px character width
@@ -122,14 +125,151 @@ document.addEventListener("DOMContentLoaded", () => {
             min = Math.min(val1, val2);
             max = Math.max(val1, val2);
             const numericValue = convertHexOrFloat(value);
-            console.log(`Minimum Value (min): ${min}`);
-            console.log(`Maximum Value (max): ${max}`);
-            console.log("Numeric Value:", numericValue);
+            // console.log(`Minimum Value (min): ${min}`);
+            // console.log(`Maximum Value (max): ${max}`);
+            // console.log("Numeric Value:", numericValue);
           }
         }
       }
     }
   });
+  editor.addEventListener("click", (event) => {
+    const patternInfo = getPatternAtPosition(event);
+    if (patternInfo) {
+      activePattern = patternInfo;
+      const { min, max, numericValue, event: evt } = patternInfo;
+
+      slider.min = min;
+      slider.max = max;
+      // For float values, we need to set a step
+      if (max === 1 && min === 0) {
+        slider.step = 0.1;
+      } else if (
+        Number.isFinite(min) &&
+        Number.isFinite(max) &&
+        (min % 1 !== 0 || max % 1 !== 0)
+      ) {
+        slider.step = (max - min) / 10;
+      } else {
+        slider.step = 1;
+      }
+      slider.value = numericValue;
+      sliderValueLabel.textContent = numericValue;
+
+      sliderPopup.style.display = "block";
+      sliderPopup.style.left = `${event.pageX + 10}px`;
+      sliderPopup.style.top = `${event.pageY}px`;
+    } else {
+      sliderPopup.style.display = "none";
+      activePattern = null;
+    }
+  });
+
+  slider.addEventListener("input", () => {
+    if (activePattern) {
+      const { originalValue, start, end, lineIndex } = activePattern;
+      let newValue = slider.value;
+
+      // Preserve original format (e.g. float with specific precision)
+      if (originalValue.includes(".")) {
+        const precision = (originalValue.split(".")[1] || "").length;
+        newValue = parseFloat(newValue).toFixed(precision);
+      }
+
+      sliderValueLabel.textContent = newValue;
+
+      const lines = editor.value.split("\n");
+      const line = lines[lineIndex];
+
+      const updatedLine =
+        line.substring(0, start) + newValue + line.substring(end);
+      lines[lineIndex] = updatedLine;
+
+      // To avoid losing cursor position, we can try to restore it.
+      const { selectionStart, selectionEnd } = editor;
+      editor.value = lines.join("\n");
+
+      // After updating the value, we need to update the end position for the active pattern
+      activePattern.end = start + String(newValue).length;
+
+      // Restore cursor position
+      editor.setSelectionRange(selectionStart, selectionEnd);
+
+      if (renderer.run) {
+        renderer.run();
+      }
+    }
+  });
+
+  function getPatternAtPosition(event) {
+    const textarea = editor;
+    const rect = textarea.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const adjustedMouseY = mouseY + textarea.scrollTop;
+    const lineHeight = 20;
+    const targetRow = Math.floor(adjustedMouseY / lineHeight);
+
+    const lines = textarea.value.split("\n");
+    if (targetRow >= lines.length) return null;
+
+    const line = lines[targetRow];
+    const charWidth = ctx.measureText("M").width;
+    let charIndex = Math.floor(mouseX / charWidth);
+    charIndex = Math.max(0, Math.min(charIndex, line.length - 1));
+
+    let start = -1,
+      end = -1;
+
+    // Find word boundaries
+    for (let i = charIndex; i >= 0; i--) {
+      if (/\s/.test(line[i])) break;
+      start = i;
+    }
+    for (let i = charIndex; i < line.length; i++) {
+      if (/\s/.test(line[i])) break;
+      end = i + 1;
+    }
+
+    if (start === -1 || end === -1) return null;
+
+    const word = line.substring(start, end);
+    const regex =
+      /([-+]?(?:0x[a-fA-F0-9]+|#?[a-fA-F0-9]+|\d*\.?\d+))\s*\/\*\[(.*?)\]\*\//;
+    const match = line.match(regex);
+
+    if (match) {
+      const matchedValue = match[1];
+      const rangeString = match[2];
+      const valueIndex = line.indexOf(matchedValue);
+      const valueEnd = valueIndex + matchedValue.length;
+
+      const rangeMatch = rangeString.match(
+        /^\s*([-+]?\d*\.?\d+)\s*\.\.\s*([-+]?\d*\.?\d+)\s*$/
+      );
+
+      if (rangeMatch) {
+        const min = convertHexOrFloat(rangeMatch[1]);
+        const max = convertHexOrFloat(rangeMatch[2]);
+        const numericValue = convertHexOrFloat(matchedValue);
+
+        return {
+          originalValue: matchedValue,
+          numericValue,
+          min,
+          max,
+          start: valueIndex,
+          end: valueEnd,
+          lineIndex: targetRow,
+          event: event,
+        };
+      }
+    }
+
+    return null;
+  }
+
   function convertHexOrFloat(valString) {
     if (valString.startsWith("0x")) {
       // Handle 0x hex format (e.g., 0xFF)
@@ -144,8 +284,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  editor.addEventListener("mouseleave", () => {
-    sliderPopup.style.display = "none"; // Hide the slider when mouse leaves
+  editor.addEventListener("mouseleave", (e) => {
+    // If the mouse is not moving to the slider popup, hide it.
+    if (!sliderPopup.contains(e.relatedTarget)) {
+      sliderPopup.style.display = "none";
+    }
+  });
+
+  sliderPopup.addEventListener("mouseleave", (e) => {
+    // If the mouse is not moving back into the editor, hide the popup.
+    if (e.relatedTarget !== editor) {
+      sliderPopup.style.display = "none";
+    }
   });
 
   // --- State ---
