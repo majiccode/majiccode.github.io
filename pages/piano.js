@@ -155,7 +155,7 @@ if (canvas) {
   function getCanvasPosition(e) {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left + canvas.parentElement.scrollLeft;
-    const y = e.clientY - rect.top;
+    const y = e.clientY - rect.top + canvas.parentElement.scrollTop;
     return { x, y };
   }
 
@@ -167,7 +167,7 @@ if (canvas) {
     const adjustedX = x - NOTE_LABEL_WIDTH;
 
     // Support quarter note resolution (0.25 beats) for syncopation
-    const beatPos = Math.round((adjustedX / GRID_WIDTH) * 4) / 4;
+    const beatPos = Math.floor((adjustedX / GRID_WIDTH) * 4) / 4;
     const noteIndex = Math.floor(y / NOTE_HEIGHT);
 
     const key = `${noteIndex}-${beatPos}`;
