@@ -25,7 +25,6 @@ window.pageAnimations.test = (function () {
 
   function setup() {
     if (!canvas || !canvas.parentElement) {
-      console.error("Canvas or parent element not found for setup.");
       return;
     }
     canvas.width = canvas.parentElement.offsetWidth;
@@ -81,7 +80,6 @@ window.pageAnimations.test = (function () {
   function start() {
     canvas = document.getElementById("synthwave-canvas");
     if (!canvas) {
-      console.error("Canvas element #synthwave-canvas not found.");
       return;
     }
     ctx = canvas.getContext("2d", { willReadFrequently: true });

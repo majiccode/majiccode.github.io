@@ -5,6 +5,7 @@ const routes = {
   "/test": "pages/test.html",
   "/projects": "pages/projects.html",
   "/notebook": "pages/notebook.html",
+  "/piano": "pages/piano.html",
 };
 
 const app = document.getElementById("app");
@@ -54,7 +55,6 @@ const router = async () => {
         }
       };
     } catch (error) {
-      console.error("Routing error:", error);
       app.innerHTML = "<h1>404 - Not Found</h1>";
     }
   } else {
@@ -291,7 +291,7 @@ const matrixEffect = (canvasId, containerSelector) => {
           if (circle_buffer[index] === 2) {
             ctx.fillStyle = "rgba(122, 5, 5, 1)";
           } else {
-            ctx.fillStyle = "rgba(5, 130, 5, 1)";
+            ctx.fillStyle = "rgba(6, 46, 6, 1)";
           }
 
           const text = matrix[Math.floor(Math.random() * matrix.length)];
@@ -331,7 +331,7 @@ const matrixEffect = (canvasId, containerSelector) => {
       }
 
       if (rndInt(0, 1000) < 10) {
-        ctx.fillStyle = "rgba(233, 241, 244, 1)";
+        ctx.fillStyle = "rgba(140, 213, 239, 0.75)";
         ctx.fillText(sparkleText[rndInt(0, sparkleText.length - 1)], p.x, p.y);
       }
     }
@@ -354,7 +354,8 @@ const matrixEffect = (canvasId, containerSelector) => {
       }
     }
 
-    ctx.fillStyle = "rgba(3, 94, 3, 1)";
+    const baseCol = "rgba(2, 67, 2, 1)";
+    ctx.fillStyle = baseCol;
 
     drawCicleBuffer();
     for (let i = 0; i < drops.length; i++) {
@@ -387,7 +388,7 @@ const matrixEffect = (canvasId, containerSelector) => {
         ctx.fillText("FF", tx + font_size, ty + font_size);
         ctx.fillText("90", tx - font_size, ty + font_size);
       }
-      ctx.fillStyle = "rgba(3, 94, 3, 1)";
+      ctx.fillStyle = baseCol;
 
       if (drops[i] * font_size > canvas.height && Math.random() > 0.975) {
         drops[i] = 0;

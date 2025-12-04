@@ -1,0 +1,617 @@
+// Piano Roll Configuration
+const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const OCTAVES = [2, 3, 4, 5, 6];
+const NOTE_HEIGHT = 20;
+const GRID_WIDTH = 80; // Increased for better visibility of subdivisions
+const BEATS = 128; // 32 measures of 4 beats (extended for full songs)
+const SUBDIVISIONS = 4; // Quarter note subdivisions (4 = 16th notes per beat)
+const CELL_WIDTH = GRID_WIDTH / SUBDIVISIONS; // Width of each subdivision
+const CANVAS_WIDTH = BEATS * GRID_WIDTH;
+
+// Generate all notes (lowest to highest for display top to bottom)
+const allNotes = [];
+for (let octave = OCTAVES[OCTAVES.length - 1]; octave >= OCTAVES[0]; octave--) {
+    for (let i = NOTES.length - 1; i >= 0; i--) {
+        allNotes.push(`${NOTES[i]}${octave}`);
+    }
+}
+
+const CANVAS_HEIGHT = allNotes.length * NOTE_HEIGHT;
+
+// State
+let notes = {}; // Store active notes: "noteIndex-beatIndex" -> true
+let isPlaying = false;
+let playbackPosition = 0;
+let playbackInterval = null;
+let activeAudioSources = []; // Track active audio sources for stopping
+let playbackStartTime = 0; // Track when playback started
+
+// Audio Context
+let audioContext = null;
+let audioBuffers = {}; // Cache for loaded audio files
+
+// Initialize
+const canvas = document.getElementById('pianoRoll');
+const ctx = canvas ? canvas.getContext('2d') : null;
+const NOTE_LABEL_WIDTH = 80;
+if (canvas) {
+    canvas.width = NOTE_LABEL_WIDTH + CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+}
+
+// Draw grid
+function drawGrid() {
+    if (!ctx) {
+        return;
+    }
+    ctx.clearRect(0, 0, NOTE_LABEL_WIDTH + CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Draw note labels background and labels
+    allNotes.forEach((note, index) => {
+        const y = index * NOTE_HEIGHT;
+        const isBlack = note.includes('#');
+        
+        // Background for note label
+        ctx.fillStyle = isBlack ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.1)';
+        ctx.fillRect(0, y, NOTE_LABEL_WIDTH, NOTE_HEIGHT);
+        
+        // Note label text
+        ctx.fillStyle = '#0f0';
+        ctx.font = 'bold 10px "Orbitron", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(note, NOTE_LABEL_WIDTH / 2, y + NOTE_HEIGHT / 2);
+    });
+    
+    // Draw vertical separator after note labels
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(NOTE_LABEL_WIDTH, 0);
+    ctx.lineTo(NOTE_LABEL_WIDTH, CANVAS_HEIGHT);
+    ctx.stroke();
+    
+    // Draw horizontal lines
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= allNotes.length; i++) {
+        const y = i * NOTE_HEIGHT;
+        ctx.beginPath();
+        ctx.moveTo(NOTE_LABEL_WIDTH, y);
+        ctx.lineTo(NOTE_LABEL_WIDTH + CANVAS_WIDTH, y);
+        ctx.stroke();
+    }
+    
+    // Draw vertical lines (beat markers with subdivisions)
+    for (let i = 0; i <= BEATS * SUBDIVISIONS; i++) {
+        const x = NOTE_LABEL_WIDTH + (i * CELL_WIDTH);
+        const isBeat = i % SUBDIVISIONS === 0;
+        const isMeasure = i % (SUBDIVISIONS * 4) === 0;
+        
+        if (isMeasure) {
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+        } else if (isBeat) {
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+        } else {
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 1;
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, CANVAS_HEIGHT);
+        ctx.stroke();
+    }
+    
+    // Draw active notes with proper subdivision width
+    ctx.fillStyle = '#0f0';
+    for (let key in notes) {
+        const [noteIndex, beatPos] = key.split('-').map(Number);
+        const x = NOTE_LABEL_WIDTH + (beatPos * GRID_WIDTH);
+        const y = noteIndex * NOTE_HEIGHT;
+        ctx.fillRect(x, y, CELL_WIDTH - 1, NOTE_HEIGHT - 1);
+    }
+    
+    // Draw playback position (supports fractional beats)
+    if (isPlaying) {
+        ctx.strokeStyle = '#ff4a4a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const x = NOTE_LABEL_WIDTH + (playbackPosition * GRID_WIDTH);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, CANVAS_HEIGHT);
+        ctx.stroke();
+    }
+}
+
+// Handle canvas interactions for drawing notes
+if (canvas) {
+    let isDrawing = false;
+    let isErasing = false;
+
+    function getCanvasPosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left + canvas.parentElement.scrollLeft;
+        const y = e.clientY - rect.top;
+        return { x, y };
+    }
+
+    function addOrRemoveNote(x, y) {
+        // Ignore clicks on note label area
+        if (x < NOTE_LABEL_WIDTH) return;
+        
+        // Adjust x position to account for note label width
+        const adjustedX = x - NOTE_LABEL_WIDTH;
+        
+        // Support quarter note resolution (0.25 beats) for syncopation
+        const beatPos = Math.round((adjustedX / GRID_WIDTH) * 4) / 4;
+        const noteIndex = Math.floor(y / NOTE_HEIGHT);
+        
+        const key = `${noteIndex}-${beatPos}`;
+        
+        if (isErasing) {
+            delete notes[key];
+        } else {
+            if (!notes[key]) {
+                notes[key] = true;
+                playNote(allNotes[noteIndex], 0.2);
+            }
+        }
+        
+        drawGrid();
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const { x, y } = getCanvasPosition(e);
+        if (x < NOTE_LABEL_WIDTH) return;
+        
+        const adjustedX = x - NOTE_LABEL_WIDTH;
+        const beatPos = Math.round((adjustedX / GRID_WIDTH) * 4) / 4;
+        const noteIndex = Math.floor(y / NOTE_HEIGHT);
+        const key = `${noteIndex}-${beatPos}`;
+        
+        // Determine if we're erasing or drawing based on whether a note exists
+        isErasing = notes[key] ? true : false;
+        isDrawing = true;
+        
+        addOrRemoveNote(x, y);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        const { x, y } = getCanvasPosition(e);
+        addOrRemoveNote(x, y);
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isDrawing = false;
+        isErasing = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        isDrawing = false;
+        isErasing = false;
+    });
+}
+
+// Load audio file for a note
+async function loadAudioFile(noteName) {
+    if (audioBuffers[noteName]) {
+        return audioBuffers[noteName];
+    }
+    
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    try {
+        // Format: assets/C2.mp3, assets/C#2.mp3, etc.
+        const fileName = noteName.replace('#', 's'); // C# becomes Cb
+        const response = await fetch(`assets/${fileName}.flac`);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        audioBuffers[noteName] = audioBuffer;
+        return audioBuffer;
+    } catch (error) {       
+        return null;
+    }
+}
+
+// Play a single note using MP3
+async function playNote(noteName, duration = 0.2) {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    const audioBuffer = await loadAudioFile(noteName);
+    if (!audioBuffer) return;
+    
+    const source = audioContext.createBufferSource();
+    const gainNode = audioContext.createGain();
+    
+    source.buffer = audioBuffer;
+    source.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+    
+    source.start(audioContext.currentTime);
+    // Optional: stop after duration if you want to cut off the sample
+    // source.stop(audioContext.currentTime + duration);
+}
+
+// Clear button
+document.getElementById('clearBtn').addEventListener('click', () => {
+    notes = {};
+    drawGrid();
+});
+
+// Play button
+document.getElementById('playBtn').addEventListener('click', async () => {
+    if (isPlaying) return;
+    
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    isPlaying = true;
+    playbackPosition = 0;
+    
+    const tempo = parseInt(document.getElementById('bpmSelect').value) || 120; // BPM from dropdown
+    const beatDuration = 60 / tempo; // seconds per beat
+    const checkInterval = beatDuration * 1000 / 16; // Check every 16th note in milliseconds
+    
+    // Schedule all notes for playback
+    const scheduledNotes = [];
+    for (let key in notes) {
+        const [noteIndex, beatPos] = key.split('-').map(Number);
+        scheduledNotes.push({
+            noteName: allNotes[noteIndex],
+            time: beatPos * beatDuration
+        });
+    }
+    
+    // Sort by time
+    scheduledNotes.sort((a, b) => a.time - b.time);
+    
+    // Pre-load all audio buffers first
+    const audioPromises = scheduledNotes.map(note => loadAudioFile(note.noteName));
+    await Promise.all(audioPromises);
+    
+    // Now start both audio and visual at the same moment
+    const audioStartTime = audioContext.currentTime;
+    activeAudioSources = []; // Clear any previous sources
+    
+    // Schedule all notes using Web Audio API's precise scheduling
+    scheduledNotes.forEach(note => {
+        const scheduleTime = audioStartTime + note.time;
+        const audioBuffer = audioBuffers[note.noteName];
+        
+        if (!audioBuffer) return;
+        
+        const source = audioContext.createBufferSource();
+        const gainNode = audioContext.createGain();
+        
+        source.buffer = audioBuffer;
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        gainNode.gain.setValueAtTime(0.7, scheduleTime);
+        source.start(scheduleTime);
+        
+        // Track source for stopping
+        activeAudioSources.push(source);
+    });
+    
+    // Visual playback update synced to audioContext.currentTime
+    playbackInterval = setInterval(() => {
+        const elapsed = audioContext.currentTime - audioStartTime;
+        playbackPosition = elapsed / beatDuration;
+        
+        if (playbackPosition >= BEATS) {
+            isPlaying = false;
+            playbackPosition = 0;
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            activeAudioSources = [];
+        }
+        
+        drawGrid();
+    }, checkInterval);
+});
+
+// Pre-defined songs
+const SONGS = {
+    
+    'entertainer': {
+        name: "The Entertainer",
+        notes: [
+            // Main Theme A - measure 1-4
+            // Bass line
+            ['C2', 0], ['G2', 2], ['C2', 4], ['G2', 6],
+            ['C2', 8], ['G2', 10], ['C2', 12], ['G2', 14],
+            
+            // Melody - the famous opening: D D# E C / E C / E C
+            ['D4', 0.75], ['D#4', 1.25], ['E4', 1.75], ['C5', 2.25],
+            ['E4', 3], ['C5', 4],
+            ['E4', 5], ['C5', 6],
+            ['E4', 7], ['C4', 8], ['D4', 8.5],
+            ['E4', 9], ['B3', 9.5], ['D4', 10], ['C4', 11],
+            
+            // Measure 5-8
+            ['C2', 16], ['G2', 18], ['C2', 20], ['G2', 22],
+            ['C2', 24], ['G2', 26], ['G2', 28], ['D3', 30],
+            
+            ['D4', 16.75], ['D#4', 17.25], ['E4', 17.75], ['C5', 18.25],
+            ['E4', 19], ['C5', 20],
+            ['E4', 21], ['C5', 22],
+            ['C5', 23], ['A4', 24], ['G4', 24.5], ['F#4', 25], ['A4', 25.5],
+            ['C4', 26], ['E4', 26.5], ['D4', 27],
+            
+            // Measure 9-12
+            ['C2', 32], ['G2', 34], ['F2', 36], ['C3', 38],
+            ['C2', 40], ['G2', 42], ['G2', 44], ['D3', 46],
+            
+            ['C4', 33], ['D4', 33.5], ['D#4', 34], ['E4', 34.5],
+            ['C4', 35], ['D4', 35.5], ['E4', 36], ['B3', 36.5],
+            ['D4', 37], ['C4', 38],
+            ['D4', 40.75], ['D#4', 41.25], ['E4', 41.75], ['C5', 42.25],
+            ['E4', 43], ['C5', 44],
+            ['E4', 45], ['C5', 46],
+            
+            // Measure 13-16
+            ['C2', 48], ['G2', 50], ['C2', 52], ['G2', 54],
+            ['F2', 56], ['C3', 58], ['C2', 60], ['G2', 62],
+            
+            ['E4', 47], ['C4', 48], ['D4', 48.5],
+            ['E4', 49], ['B3', 49.5], ['D4', 50], ['C4', 51],
+            ['D4', 52.75], ['D#4', 53.25], ['E4', 53.75], ['C5', 54.25],
+            ['E4', 55], ['C5', 56],
+            ['C5', 57], ['A4', 58], ['G4', 58.5], ['F#4', 59], ['A4', 59.5],
+            ['C4', 60], ['E4', 60.5], ['D4', 61],
+            
+            // Measure 17-20
+            ['C2', 64], ['G2', 66], ['G2', 68], ['D3', 70],
+            ['C2', 72], ['G2', 74], ['C2', 76], ['G2', 78],
+            
+            ['C4', 65], ['D4', 65.5], ['D#4', 66], ['E4', 66.5],
+            ['C4', 67], ['D4', 67.5], ['E4', 68], ['B3', 68.5],
+            ['D4', 69], ['C4', 70],
+            ['C4', 72], ['C4', 73], ['C4', 74], ['C4', 75],
+            
+            // B Section (Trio) - Measure 21-28
+            ['F2', 80], ['C3', 82], ['F2', 84], ['C3', 86],
+            ['F2', 88], ['C3', 90], ['F2', 92], ['C3', 94],
+            
+            ['C4', 80], ['C4', 81],
+            ['G4', 82], ['E4', 82.5], ['C4', 83],
+            ['E4', 84], ['D4', 85],
+            ['D4', 86], ['D4', 87],
+            ['A#3', 88], ['G3', 88.5], ['F3', 89], ['G3', 89.5],
+            ['A3', 90], ['A3', 91],
+            ['C5', 92], ['A4', 92.5], ['F4', 93],
+            ['A4', 94], ['G4', 95],
+            
+            // Measure 29-36
+            ['G2', 96], ['D3', 98], ['G2', 100], ['D3', 102],
+            ['F2', 104], ['C3', 106], ['F2', 108], ['C3', 110],
+            
+            ['G4', 96], ['G4', 97],
+            ['D4', 98], ['B3', 98.5], ['G3', 99],
+            ['B3', 100], ['A3', 101], ['A3', 102], ['A3', 103],
+            ['C4', 104], ['C4', 105],
+            ['G4', 106], ['E4', 106.5], ['C4', 107],
+            ['E4', 108], ['D4', 109],
+            ['D4', 110], ['D4', 111],
+            
+            // Measure 37-40
+            ['A#2', 112], ['F3', 114], ['F2', 116], ['C3', 118],
+            ['C2', 120], ['G2', 122], ['C2', 124], ['G2', 126],
+            
+            ['A#3', 112], ['G3', 112.5], ['F3', 113], ['G3', 113.5],
+            ['A3', 114], ['A3', 115],
+            ['F4', 116], ['A4', 116.5], ['C5', 117],
+            ['A4', 118], ['F4', 119],
+            ['C4', 120], ['C4', 121], ['C4', 122], ['C4', 123],
+            ['C4', 124], ['C4', 125], ['C4', 126], ['C4', 127]
+        ]
+    },
+    
+    'honky-tonk': {
+        name: "Honky Tonk Stomp",
+        notes: [
+            // INTRO - Measures 1-8 (Classic honky tonk shuffle in C)
+            // Bass - stride pattern with walking bass
+            ['C2', 0], ['G2', 1], ['C2', 2], ['E2', 3],
+            ['F2', 4], ['C3', 5], ['F2', 6], ['A2', 7],
+            ['C2', 8], ['G2', 9], ['C2', 10], ['E2', 11],
+            ['G2', 12], ['D3', 13], ['G2', 14], ['B2', 15],
+            
+            // Right hand - syncopated melody with swing feel
+            ['E4', 0.75], ['G4', 1.25], ['C5', 1.75], ['E5', 2.25],
+            ['D5', 3], ['C5', 3.5], ['A4', 4], ['G4', 4.5],
+            ['F4', 5], ['A4', 5.5], ['C5', 6], ['F5', 6.5],
+            ['E5', 7], ['D5', 7.5], ['C5', 8],
+            ['E4', 8.75], ['G4', 9.25], ['C5', 9.75], ['E5', 10.25],
+            ['D5', 11], ['C5', 11.5], ['B4', 12], ['A4', 12.5],
+            ['G4', 13], ['F4', 13.5], ['E4', 14], ['D4', 14.5], ['C4', 15],
+            
+            // VERSE 1 - Measures 9-24
+            ['C2', 16], ['G2', 17], ['C2', 18], ['E2', 19],
+            ['C2', 20], ['G2', 21], ['C2', 22], ['E2', 23],
+            ['F2', 24], ['C3', 25], ['F2', 26], ['A2', 27],
+            ['F2', 28], ['C3', 29], ['F2', 30], ['A2', 31],
+            
+            ['C4', 16.5], ['D4', 17], ['E4', 17.5], ['G4', 18],
+            ['C5', 18.5], ['E5', 19], ['D5', 19.5], ['C5', 20],
+            ['G4', 20.5], ['A4', 21], ['C5', 21.5], ['E5', 22],
+            ['G5', 22.5], ['E5', 23], ['C5', 23.5],
+            ['F4', 24.5], ['G4', 25], ['A4', 25.5], ['C5', 26],
+            ['F5', 26.5], ['A5', 27], ['G5', 27.5], ['F5', 28],
+            ['C5', 28.5], ['D5', 29], ['E5', 29.5], ['F5', 30],
+            ['A5', 30.5], ['F5', 31], ['E5', 31.5],
+            
+            ['C2', 32], ['G2', 33], ['C2', 34], ['E2', 35],
+            ['G2', 36], ['D3', 37], ['G2', 38], ['B2', 39],
+            ['C2', 40], ['G2', 41], ['C2', 42], ['E2', 43],
+            ['C2', 44], ['G2', 45], ['C2', 46], ['E2', 47],
+            
+            ['E4', 32.5], ['G4', 33], ['C5', 33.5], ['E5', 34],
+            ['D5', 34.5], ['C5', 35], ['G4', 35.5],
+            ['B4', 36.5], ['D5', 37], ['G5', 37.5], ['B5', 38],
+            ['A5', 38.5], ['G5', 39], ['F5', 39.5],
+            ['E5', 40.5], ['D5', 41], ['C5', 41.5], ['G4', 42],
+            ['E4', 42.5], ['C4', 43],
+            ['D4', 44], ['E4', 44.5], ['G4', 45], ['C5', 45.5], ['E5', 46], ['C5', 47],
+            
+            // CHORUS - Measures 25-40 (More energetic with runs)
+            ['C2', 48], ['G2', 49], ['C2', 50], ['E2', 51],
+            ['F2', 52], ['C3', 53], ['F2', 54], ['A2', 55],
+            ['C2', 56], ['G2', 57], ['C2', 58], ['E2', 59],
+            ['G2', 60], ['D3', 61], ['G2', 62], ['B2', 63],
+            
+            ['C5', 48], ['D5', 48.25], ['E5', 48.5], ['G5', 48.75],
+            ['C6', 49], ['E6', 49.5], ['C6', 50], ['G5', 50.5],
+            ['E5', 51], ['C5', 51.5],
+            ['F5', 52], ['G5', 52.25], ['A5', 52.5], ['C6', 52.75],
+            ['F6', 53], ['A6', 53.5], ['F6', 54], ['C6', 54.5],
+            ['A5', 55], ['F5', 55.5],
+            ['E5', 56], ['F5', 56.25], ['G5', 56.5], ['C6', 56.75],
+            ['E6', 57], ['G6', 57.5], ['E6', 58], ['C6', 58.5],
+            ['G5', 59], ['E5', 59.5],
+            ['D5', 60], ['E5', 60.25], ['F5', 60.5], ['G5', 60.75],
+            ['B5', 61], ['D6', 61.5], ['B5', 62], ['G5', 62.5],
+            ['F5', 63], ['D5', 63.5],
+            
+            ['C2', 64], ['G2', 65], ['C2', 66], ['E2', 67],
+            ['F2', 68], ['C3', 69], ['F2', 70], ['A2', 71],
+            ['C2', 72], ['G2', 73], ['C2', 74], ['E2', 75],
+            ['C2', 76], ['G2', 77], ['C2', 78], ['E2', 79],
+            
+            ['C5', 64.5], ['E5', 65], ['G5', 65.5], ['C6', 66],
+            ['E6', 66.5], ['C6', 67], ['G5', 67.5],
+            ['F5', 68.5], ['A5', 69], ['C6', 69.5], ['F6', 70],
+            ['A6', 70.5], ['F6', 71], ['C6', 71.5],
+            ['E6', 72.5], ['C6', 73], ['G5', 73.5], ['E5', 74],
+            ['C5', 74.5], ['G4', 75],
+            ['C5', 76], ['D5', 76.5], ['E5', 77], ['G5', 77.5], ['C6', 78], ['E6', 78.5], ['G6', 79],
+            
+            // BRIDGE - Measures 41-56 (Key change feel, more chromatic)
+            ['F2', 80], ['C3', 81], ['F2', 82], ['A2', 83],
+            ['A#2', 84], ['F3', 85], ['A#2', 86], ['D3', 87],
+            ['C2', 88], ['G2', 89], ['C2', 90], ['E2', 91],
+            ['G2', 92], ['D3', 93], ['G2', 94], ['B2', 95],
+            
+            ['F4', 80.5], ['A4', 81], ['C5', 81.5], ['F5', 82],
+            ['A5', 82.5], ['C6', 83], ['A5', 83.5],
+            ['D5', 84.5], ['F5', 85], ['A#5', 85.5], ['D6', 86],
+            ['F6', 86.5], ['D6', 87], ['A#5', 87.5],
+            ['C5', 88.5], ['E5', 89], ['G5', 89.5], ['C6', 90],
+            ['E6', 90.5], ['C6', 91], ['G5', 91.5],
+            ['B4', 92.5], ['D5', 93], ['G5', 93.5], ['B5', 94],
+            ['D6', 94.5], ['B5', 95], ['G5', 95.5],
+            
+            ['C2', 96], ['G2', 97], ['C2', 98], ['E2', 99],
+            ['F2', 100], ['C3', 101], ['F2', 102], ['A2', 103],
+            ['C2', 104], ['G2', 105], ['C2', 106], ['E2', 107],
+            ['G2', 108], ['D3', 109], ['G2', 110], ['B2', 111],
+            
+            ['E5', 96], ['D5', 96.25], ['C5', 96.5], ['D5', 96.75],
+            ['E5', 97], ['G5', 97.5], ['C6', 98], ['E6', 98.5], ['C6', 99],
+            ['F5', 100], ['E5', 100.25], ['D5', 100.5], ['E5', 100.75],
+            ['F5', 101], ['A5', 101.5], ['C6', 102], ['F6', 102.5], ['C6', 103],
+            ['G5', 104], ['F5', 104.25], ['E5', 104.5], ['F5', 104.75],
+            ['G5', 105], ['C6', 105.5], ['E6', 106], ['G6', 106.5], ['E6', 107],
+            ['D6', 108], ['C6', 108.25], ['B5', 108.5], ['C6', 108.75],
+            ['D6', 109], ['G6', 109.5], ['B6', 110], ['G6', 110.5], ['D6', 111],
+            
+            // FINALE - Measures 57-64 (Big ending with glissando feel)
+            ['C2', 112], ['G2', 113], ['C2', 114], ['E2', 115],
+            ['F2', 116], ['C3', 117], ['F2', 118], ['A2', 119],
+            ['G2', 120], ['D3', 121], ['G2', 122], ['B2', 123],
+            ['C2', 124], ['E2', 124], ['G2', 124], ['C3', 124],
+            
+            ['C5', 112], ['D5', 112.25], ['E5', 112.5], ['F5', 112.75],
+            ['G5', 113], ['A5', 113.25], ['B5', 113.5], ['C6', 113.75],
+            ['E6', 114], ['D6', 114.25], ['C6', 114.5], ['G5', 114.75],
+            ['E5', 115], ['C5', 115.5],
+            ['F5', 116], ['G5', 116.25], ['A5', 116.5], ['A#5', 116.75],
+            ['C6', 117], ['D6', 117.25], ['E6', 117.5], ['F6', 117.75],
+            ['A6', 118], ['G6', 118.25], ['F6', 118.5], ['C6', 118.75],
+            ['A5', 119], ['F5', 119.5],
+            ['G5', 120], ['A5', 120.25], ['B5', 120.5], ['C6', 120.75],
+            ['D6', 121], ['E6', 121.25], ['F6', 121.5], ['G6', 121.75],
+            ['B6', 122], ['A6', 122.25], ['G6', 122.5], ['F6', 122.75],
+            ['E6', 123], ['D6', 123.5],
+            // Final chord
+            ['C3', 124], ['E3', 124], ['G3', 124], ['C4', 124],
+            ['E4', 124], ['G4', 124], ['C5', 124], ['E5', 124], ['G5', 124], ['C6', 124]
+        ]
+    }
+   
+};
+
+// Helper function to load a song
+function loadSong(songKey) {
+    notes = {};
+    const song = SONGS[songKey];
+    if (!song) {
+        return;
+    }
+    
+    song.notes.forEach(([noteName, beat]) => {
+        const noteIndex = allNotes.indexOf(noteName);
+        if (noteIndex !== -1) {
+            // Store fractional beats for proper timing
+            const key = `${noteIndex}-${beat}`;
+            notes[key] = true;
+        }
+    });
+    
+    drawGrid();
+}
+
+// Stop button
+document.getElementById('stopBtn').addEventListener('click', () => {
+    isPlaying = false;
+    playbackPosition = 0;
+    
+    // Stop the visual update interval
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    
+    // Stop all active audio sources
+    activeAudioSources.forEach(source => {
+        try {
+            source.stop();
+        } catch (e) {
+            // Source may have already stopped naturally
+        }
+    });
+    activeAudioSources = [];
+    
+    drawGrid();
+});
+
+// Load song button
+document.getElementById('loadSongBtn').addEventListener('click', () => {
+    const songSelect = document.getElementById('songSelect');
+    const songKey = songSelect.value;
+    if (songKey) {
+        loadSong(songKey);
+    }
+});
+
+
+// Initial draw
+drawGrid();
+
+// Load Honky Tonk by default on page load
+window.addEventListener('DOMContentLoaded', () => {
+    loadSong('honky-tonk');
+    document.getElementById('songSelect').value = 'honky-tonk';
+});
