@@ -39,6 +39,27 @@ if (canvas) {
   canvas.height = CANVAS_HEIGHT;
 }
 
+// Preload all audio samples
+async function preloadAllSamples() {
+  const loadPromises = [];
+  for (const octave of OCTAVES) {
+    for (const note of NOTES) {
+      loadPromises.push(loadAudioFile(`${note}${octave}`));
+    }
+  }
+  try {
+    await Promise.all(loadPromises);
+  } catch (error) {
+    console.error("Failed to preload some audio samples:", error);
+  }
+}
+
+// Initialize and draw
+(async () => {
+  await preloadAllSamples();
+  drawGrid();
+})();
+
 // Draw grid
 function drawGrid() {
   if (!ctx) {
@@ -276,11 +297,11 @@ document.getElementById("playBtn").addEventListener("click", async () => {
   // Sort by time
   scheduledNotes.sort((a, b) => a.time - b.time);
 
-  // Pre-load all audio buffers first
-  const audioPromises = scheduledNotes.map((note) =>
-    loadAudioFile(note.noteName)
-  );
-  await Promise.all(audioPromises);
+  // Pre-load all audio buffers first - no longer needed, they are preloaded
+  // const audioPromises = scheduledNotes.map((note) =>
+  //   loadAudioFile(note.noteName)
+  // );
+  // await Promise.all(audioPromises);
 
   // Now start both audio and visual at the same moment
   const audioStartTime = audioContext.currentTime;
@@ -326,242 +347,6 @@ document.getElementById("playBtn").addEventListener("click", async () => {
 
 // Pre-defined songs
 const SONGS = {
-  entertainer: {
-    name: "The Entertainer",
-    notes: [
-      // Main Theme A - measure 1-4
-      // Bass line
-      ["C2", 0],
-      ["G2", 2],
-      ["C2", 4],
-      ["G2", 6],
-      ["C2", 8],
-      ["G2", 10],
-      ["C2", 12],
-      ["G2", 14],
-
-      // Melody - the famous opening: D D# E C / E C / E C
-      ["D4", 0.75],
-      ["D#4", 1.25],
-      ["E4", 1.75],
-      ["C5", 2.25],
-      ["E4", 3],
-      ["C5", 4],
-      ["E4", 5],
-      ["C5", 6],
-      ["E4", 7],
-      ["C4", 8],
-      ["D4", 8.5],
-      ["E4", 9],
-      ["B3", 9.5],
-      ["D4", 10],
-      ["C4", 11],
-
-      // Measure 5-8
-      ["C2", 16],
-      ["G2", 18],
-      ["C2", 20],
-      ["G2", 22],
-      ["C2", 24],
-      ["G2", 26],
-      ["G2", 28],
-      ["D3", 30],
-
-      ["D4", 16.75],
-      ["D#4", 17.25],
-      ["E4", 17.75],
-      ["C5", 18.25],
-      ["E4", 19],
-      ["C5", 20],
-      ["E4", 21],
-      ["C5", 22],
-      ["C5", 23],
-      ["A4", 24],
-      ["G4", 24.5],
-      ["F#4", 25],
-      ["A4", 25.5],
-      ["C4", 26],
-      ["E4", 26.5],
-      ["D4", 27],
-
-      // Measure 9-12
-      ["C2", 32],
-      ["G2", 34],
-      ["F2", 36],
-      ["C3", 38],
-      ["C2", 40],
-      ["G2", 42],
-      ["G2", 44],
-      ["D3", 46],
-
-      ["C4", 33],
-      ["D4", 33.5],
-      ["D#4", 34],
-      ["E4", 34.5],
-      ["C4", 35],
-      ["D4", 35.5],
-      ["E4", 36],
-      ["B3", 36.5],
-      ["D4", 37],
-      ["C4", 38],
-      ["D4", 40.75],
-      ["D#4", 41.25],
-      ["E4", 41.75],
-      ["C5", 42.25],
-      ["E4", 43],
-      ["C5", 44],
-      ["E4", 45],
-      ["C5", 46],
-
-      // Measure 13-16
-      ["C2", 48],
-      ["G2", 50],
-      ["C2", 52],
-      ["G2", 54],
-      ["F2", 56],
-      ["C3", 58],
-      ["C2", 60],
-      ["G2", 62],
-
-      ["E4", 47],
-      ["C4", 48],
-      ["D4", 48.5],
-      ["E4", 49],
-      ["B3", 49.5],
-      ["D4", 50],
-      ["C4", 51],
-      ["D4", 52.75],
-      ["D#4", 53.25],
-      ["E4", 53.75],
-      ["C5", 54.25],
-      ["E4", 55],
-      ["C5", 56],
-      ["C5", 57],
-      ["A4", 58],
-      ["G4", 58.5],
-      ["F#4", 59],
-      ["A4", 59.5],
-      ["C4", 60],
-      ["E4", 60.5],
-      ["D4", 61],
-
-      // Measure 17-20
-      ["C2", 64],
-      ["G2", 66],
-      ["G2", 68],
-      ["D3", 70],
-      ["C2", 72],
-      ["G2", 74],
-      ["C2", 76],
-      ["G2", 78],
-
-      ["C4", 65],
-      ["D4", 65.5],
-      ["D#4", 66],
-      ["E4", 66.5],
-      ["C4", 67],
-      ["D4", 67.5],
-      ["E4", 68],
-      ["B3", 68.5],
-      ["D4", 69],
-      ["C4", 70],
-      ["C4", 72],
-      ["C4", 73],
-      ["C4", 74],
-      ["C4", 75],
-
-      // B Section (Trio) - Measure 21-28
-      ["F2", 80],
-      ["C3", 82],
-      ["F2", 84],
-      ["C3", 86],
-      ["F2", 88],
-      ["C3", 90],
-      ["F2", 92],
-      ["C3", 94],
-
-      ["C4", 80],
-      ["C4", 81],
-      ["G4", 82],
-      ["E4", 82.5],
-      ["C4", 83],
-      ["E4", 84],
-      ["D4", 85],
-      ["D4", 86],
-      ["D4", 87],
-      ["A#3", 88],
-      ["G3", 88.5],
-      ["F3", 89],
-      ["G3", 89.5],
-      ["A3", 90],
-      ["A3", 91],
-      ["C5", 92],
-      ["A4", 92.5],
-      ["F4", 93],
-      ["A4", 94],
-      ["G4", 95],
-
-      // Measure 29-36
-      ["G2", 96],
-      ["D3", 98],
-      ["G2", 100],
-      ["D3", 102],
-      ["F2", 104],
-      ["C3", 106],
-      ["F2", 108],
-      ["C3", 110],
-
-      ["G4", 96],
-      ["G4", 97],
-      ["D4", 98],
-      ["B3", 98.5],
-      ["G3", 99],
-      ["B3", 100],
-      ["A3", 101],
-      ["A3", 102],
-      ["A3", 103],
-      ["C4", 104],
-      ["C4", 105],
-      ["G4", 106],
-      ["E4", 106.5],
-      ["C4", 107],
-      ["E4", 108],
-      ["D4", 109],
-      ["D4", 110],
-      ["D4", 111],
-
-      // Measure 37-40
-      ["A#2", 112],
-      ["F3", 114],
-      ["F2", 116],
-      ["C3", 118],
-      ["C2", 120],
-      ["G2", 122],
-      ["C2", 124],
-      ["G2", 126],
-
-      ["A#3", 112],
-      ["G3", 112.5],
-      ["F3", 113],
-      ["G3", 113.5],
-      ["A3", 114],
-      ["A3", 115],
-      ["F4", 116],
-      ["A4", 116.5],
-      ["C5", 117],
-      ["A4", 118],
-      ["F4", 119],
-      ["C4", 120],
-      ["C4", 121],
-      ["C4", 122],
-      ["C4", 123],
-      ["C4", 124],
-      ["C4", 125],
-      ["C4", 126],
-      ["C4", 127],
-    ],
-  },
-
   "honky-tonk": {
     name: "Honky Tonk Stomp",
     notes: [

@@ -1,37 +1,36 @@
 <h1>Piano Roll</h1>
 
 <div class="piano-controls-section">
-    <div class="controls">
-        <button id="clearBtn">Clear</button>
-        <button id="playBtn">Play</button>
-        <button id="stopBtn">Stop</button>
-    </div>
-    
-    <div class="song-selector">
-        <label for="songSelect">Load Song:</label>
-        <select id="songSelect">
-            <option value="">-- Select a Song --</option>
-            <optgroup label="Ragtime & Honky Tonk">
-                <option value="entertainer">The Entertainer</option>
-                <option value="honky-tonk" selected>Honky Tonk Stomp</option>
-            </optgroup>
-        </select>
-        <button id="loadSongBtn">Load</button>
-        
-        <label for="bpmSelect" style="margin-left: 20px;">BPM:</label>
-        <select id="bpmSelect">
-            <option value="60">60</option>
-            <option value="80">80</option>
-            <option value="100">100</option>
-            <option value="120" selected>120</option>
-            <option value="140">140</option>
-            <option value="160">160</option>
-            <option value="180">180</option>
-            <option value="200">200</option>
-        </select>
-    </div>
+  <div class="controls">
+    <button id="clearBtn">Clear</button>
+    <button id="playBtn">Play</button>
+    <button id="stopBtn">Stop</button>
+  </div>
+
+  <div class="song-selector">
+    <label for="songSelect">Load Song:</label>
+    <select id="songSelect">
+      <option value="">-- Select a Song --</option>
+      <optgroup label="Ragtime & Honky Tonk">
+        <option value="honky-tonk" selected>Honky Tonk Stomp</option>
+      </optgroup>
+    </select>
+    <button id="loadSongBtn">Load</button>
+
+    <label for="bpmSelect" style="margin-left: 20px">BPM:</label>
+    <select id="bpmSelect">
+      <option value="60">60</option>
+      <option value="80">80</option>
+      <option value="100">100</option>
+      <option value="120" selected>120</option>
+      <option value="140">140</option>
+      <option value="160">160</option>
+      <option value="180">180</option>
+      <option value="200">200</option>
+    </select>
+  </div>
 </div>
 
 <div class="piano-roll-wrapper">
-    <canvas id="pianoRoll"></canvas>
+  <canvas id="pianoRoll"></canvas>
 </div>
