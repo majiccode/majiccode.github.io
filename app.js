@@ -31,10 +31,15 @@ function createPcgRandom(seed = 1) {
 const pcg = createPcgRandom(Date.now());
 
 const app = document.getElementById("app");
-let currentPage = null; // To track the current page animation
+const pageCache = {}; // To cache page content and scripts
+let currentPage = null; // To track the current page
 
 const router = async () => {
-  // 1. Stop any running animation from the previous page
+  const path = location.hash.slice(1) || "/";
+  const pageName = path.substring(1) || "home";
+  const route = routes[path];
+
+  // Stop any running animation from the previous page
   if (
     currentPage &&
     window.pageAnimations &&
@@ -44,30 +49,50 @@ const router = async () => {
     window.pageAnimations[currentPage].stop();
   }
 
-  // 2. Remove previously loaded dynamic scripts
-  document
-    .querySelectorAll("script[data-dynamic-script]")
-    .forEach((s) => s.remove());
+  // Hide all page containers
+  Object.values(pageCache).forEach((p) => {
+    if (p.container) {
+      p.container.classList.add("page-hidden");
+    }
+  });
 
-  const path = location.hash.slice(1) || "/";
-  const route = routes[path];
-  currentPage = path.substring(1) || "home"; // Update current page
-
-  if (route) {
+  if (pageCache[pageName]) {
+    // Page is in cache, just show it
+    pageCache[pageName].container.classList.remove("page-hidden");
+    currentPage = pageName;
+    // Restart animation if available
+    if (
+      window.pageAnimations &&
+      window.pageAnimations[currentPage] &&
+      typeof window.pageAnimations[currentPage].start === "function"
+    ) {
+      window.pageAnimations[currentPage].start();
+    }
+  } else if (route) {
+    // Page not in cache, load it
     try {
       const response = await fetch(route);
       if (!response.ok) throw new Error(`Page not found: ${route}`);
       const html = await response.text();
-      app.innerHTML = html;
 
-      // Automatically load the corresponding script
+      // Create a new container for the page
+      const container = document.createElement("div");
+      container.id = `${pageName}-container`;
+      container.innerHTML = html;
+      app.appendChild(container);
+
+      pageCache[pageName] = { container };
+      currentPage = pageName;
+
+      // Load the corresponding script
       const scriptPath = route.replace(".html", ".js");
       const script = document.createElement("script");
       script.src = scriptPath;
-      script.setAttribute("data-dynamic-script", "true");
+      script.dataset.page = pageName; // Associate script with page
       document.body.appendChild(script);
 
       script.onload = () => {
+        // Start animation if available
         if (
           window.pageAnimations &&
           window.pageAnimations[currentPage] &&
@@ -215,8 +240,8 @@ const matrixEffect = (canvasId, containerSelector) => {
     particles.push({
       x: pcg() * canvas.width,
       y: pcg() * canvas.height,
-      radius: pcg() * 170 + 25,
-      speed: pcg() * 6,
+      radius: pcg() * 220 + 30,
+      speed: pcg() * 10 + 1,
       dir: { x: pcg() - 0.5, y: pcg() - 0.5 },
     });
   }

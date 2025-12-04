@@ -408,6 +408,10 @@ select:hover {
   transform: rotate(-45deg) translate(7px, -6px);
 }
 
+.page-hidden {
+  display: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .menu-toggle {
