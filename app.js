@@ -8,6 +8,28 @@ const routes = {
   "/piano": "pages/piano.html",
 };
 
+// Create a PCG random number generator
+function createPcgRandom(seed = 1) {
+  let state = BigInt(seed);
+  const multiplier = 6364136223846793005n;
+  const increment = 1442695040888963407n;
+  const mod = 2n ** 64n;
+  const mod32 = 2 ** 32;
+
+  return function () {
+    const oldState = state;
+    state = (oldState * multiplier + increment) % mod;
+
+    const xorshifted = Number(((oldState >> 18n) ^ oldState) >> 27n);
+    const rot = Number(oldState >> 59n);
+    const result = (xorshifted >>> rot) | (xorshifted << (-rot & 31));
+
+    return (result >>> 0) / mod32;
+  };
+}
+
+const pcg = createPcgRandom(Date.now());
+
 const app = document.getElementById("app");
 let currentPage = null; // To track the current page animation
 
@@ -167,13 +189,13 @@ const matrixEffect = (canvasId, containerSelector) => {
     "lulz",
     "pwn",
   ];
+  const matrixLength = matrix.length;
+  const sparkleTextLength = sparkleText.length;
 
-  const vec2 = (x, y) => ({ x, y });
   const font_size = 10;
-
-  const circle_buffer_width = canvas.width / font_size;
-  const circle_buffer_height = canvas.height / font_size;
-  const columns = canvas.width / font_size;
+  const circle_buffer_width = (canvas.width / font_size) | 0;
+  const circle_buffer_height = (canvas.height / font_size) | 0;
+  const columns = circle_buffer_width;
   const drops = [];
   const particles = [];
   const lines = [];
@@ -187,28 +209,28 @@ const matrixEffect = (canvasId, containerSelector) => {
     drops[x] = 1;
   }
   for (let i = 0; i < drops.length; i++) {
-    drops[i] = canvas.height / font_size;
+    drops[i] = circle_buffer_height;
   }
   for (let i = 0; i < maxParticles; i++) {
     particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      radius: Math.random() * 170 + 25,
-      speed: Math.random() * 6,
-      dir: vec2(Math.random() - 0.5, Math.random() - 0.5),
+      x: pcg() * canvas.width,
+      y: pcg() * canvas.height,
+      radius: pcg() * 170 + 25,
+      speed: pcg() * 6,
+      dir: { x: pcg() - 0.5, y: pcg() - 0.5 },
     });
   }
 
   function plotPixel(x, y, v) {
-    const sx = Math.floor(x) | 0;
-    const sy = Math.floor(y) | 0;
-    const index = (sy * circle_buffer_width + sx) | 0;
+    const sx = x | 0;
+    const sy = y | 0;
     if (
       sx >= 0 &&
       sx < circle_buffer_width &&
       sy >= 0 &&
       sy < circle_buffer_height
     ) {
+      const index = (sy * circle_buffer_width + sx) | 0;
       circle_buffer[index] = v;
     }
   }
@@ -225,76 +247,89 @@ const matrixEffect = (canvasId, containerSelector) => {
   }
 
   function bresenhamCircle(centerX, centerY, radius) {
-    centerX /= font_size;
-    centerY /= font_size;
-    radius /= font_size;
-    centerX = Math.floor(centerX) | 0;
-    centerY = Math.floor(centerY) | 0;
-    radius = Math.floor(radius) | 0;
+    const cx = (centerX / font_size) | 0;
+    const cy = (centerY / font_size) | 0;
+    const r = (radius / font_size) | 0;
+
     let x = 0 | 0;
-    let y = radius | 0;
-    let d = (3 - 2 * radius) | 0;
-    while (y > x) {
+    let y = r | 0;
+    let d = (3 - 2 * r) | 0;
+    while (y >= x) {
+      plotOctants(x, y, cx, cy);
       x++;
       if (d > 0) {
         y--;
-        d = (d + 4 * (x - y)) | 0;
+        d = d + 4 * (x - y); // + 10;
       } else {
-        d = (d + 4 * x) | 0;
+        d = d + 4 * x; // + 6;
       }
-      plotOctants(x, y, centerX, centerY);
     }
   }
   const epsilon = 0.01;
 
   function line(x0, y0, x1, y1) {
-    x0 /= font_size;
-    y0 /= font_size;
-    x1 /= font_size;
-    y1 /= font_size;
-    x0 = Math.floor(x0) | 0;
-    y0 = Math.floor(y0) | 0;
-    x1 = Math.floor(x1) | 0;
-    y1 = Math.floor(y1) | 0;
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = Math.sign(x1 - x0);
-    const sy = Math.sign(y1 - y0);
+    let cx0 = (x0 / font_size) | 0;
+    let cy0 = (y0 / font_size) | 0;
+    const cx1 = (x1 / font_size) | 0;
+    const cy1 = (y1 / font_size) | 0;
+
+    const dx = Math.abs(cx1 - cx0);
+    const dy = Math.abs(cy1 - cy0);
+    const sx = Math.sign(cx1 - cx0);
+    const sy = Math.sign(cy1 - cy0);
     let err = dx - dy;
 
     while (true) {
-      plotPixel(x0, y0, 2);
+      plotPixel(cx0, cy0, 2);
 
-      if (Math.abs(x0 - x1) + Math.abs(y0 - y1) < epsilon) break;
+      if (Math.abs(cx0 - cx1) < epsilon && Math.abs(cy0 - cy1) < epsilon) break;
 
       const e2 = 2 * err;
       if (e2 > -dy) {
         err -= dy;
-        x0 += sx;
+        cx0 += sx;
       }
       if (e2 < dx) {
         err += dx;
-        y0 += sy;
+        cy0 += sy;
       }
     }
   }
 
   function drawCicleBuffer() {
+    const blackFill = "rgba(0, 0, 0, 1)";
+    const redFill = "rgba(122, 5, 5, 1)";
+    const greenFill = "rgba(6, 46, 6, 1)";
+    let currentFill = "";
+
     for (let y = 0; y < circle_buffer_height; y++) {
       for (let x = 0; x < circle_buffer_width; x++) {
         const index = (y * circle_buffer_width + x) | 0;
-        const xx = (x * font_size) | 0;
-        const yy = (y * font_size) | 0;
-        if (circle_buffer[index] > 0) {
-          ctx.fillStyle = "rgba(0, 0, 0, 1)";
+        const value = circle_buffer[index];
+
+        if (value > 0) {
+          const xx = (x * font_size) | 0;
+          const yy = (y * font_size) | 0;
+
+          if (currentFill !== blackFill) {
+            ctx.fillStyle = blackFill;
+            currentFill = blackFill;
+          }
           ctx.fillRect(xx, yy, font_size, font_size);
-          if (circle_buffer[index] === 2) {
-            ctx.fillStyle = "rgba(122, 5, 5, 1)";
+
+          if (value === 2) {
+            if (currentFill !== redFill) {
+              ctx.fillStyle = redFill;
+              currentFill = redFill;
+            }
           } else {
-            ctx.fillStyle = "rgba(6, 46, 6, 1)";
+            if (currentFill !== greenFill) {
+              ctx.fillStyle = greenFill;
+              currentFill = greenFill;
+            }
           }
 
-          const text = matrix[Math.floor(Math.random() * matrix.length)];
+          const text = matrix[(pcg() * matrixLength) | 0];
           ctx.fillText(text, xx, yy + font_size);
         }
       }
@@ -302,15 +337,13 @@ const matrixEffect = (canvasId, containerSelector) => {
   }
 
   function rndInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+    return ((pcg() * (max - min + 1)) | 0) + min;
   }
 
   function draw(deltaTime) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Set the fill color to green
-    ctx.fillStyle = "green";
     ctx.font = font_size + "px arial";
 
     circle_buffer.fill(0);
@@ -322,17 +355,19 @@ const matrixEffect = (canvasId, containerSelector) => {
       if (p.x < 0 || p.x > canvas.width) p.dir.x *= -1;
       if (p.y < 0 || p.y > canvas.height) p.dir.y *= -1;
       bresenhamCircle(p.x, p.y, p.radius);
-      if (Math.random() < 0.01) {
-        p.dir = vec2(Math.random() - 0.5, Math.random() - 0.5);
-        p.radius = Math.random() * 100 + 25;
+
+      if (pcg() < 0.01) {
+        p.dir.x = pcg() - 0.5;
+        p.dir.y = pcg() - 0.5;
+        p.radius = pcg() * 100 + 25;
       }
       if (rndInt(0, 1000) < 5) {
-        p.radius += Math.random() * 50 - 25;
+        p.radius += pcg() * 50 - 25;
       }
 
       if (rndInt(0, 1000) < 10) {
-        ctx.fillStyle = "rgba(140, 213, 239, 0.75)";
-        ctx.fillText(sparkleText[rndInt(0, sparkleText.length - 1)], p.x, p.y);
+        ctx.fillStyle = "rgba(129, 199, 225, 0.75)";
+        ctx.fillText(sparkleText[rndInt(0, sparkleTextLength - 1)], p.x, p.y);
       }
     }
 
@@ -359,38 +394,46 @@ const matrixEffect = (canvasId, containerSelector) => {
 
     drawCicleBuffer();
     for (let i = 0; i < drops.length; i++) {
-      const text = matrix[Math.floor(Math.random() * matrix.length)];
+      const text = matrix[(pcg() * matrixLength) | 0];
 
       const tx = i * font_size;
       const ty = drops[i] * font_size;
 
       ctx.fillText(text, tx, ty);
 
-      const cx = tx / font_size;
-      const cy = ty / font_size;
-      const index = (cy * circle_buffer_width + cx) | 0;
-      if (circle_buffer[index] === 1) {
-        ctx.fillStyle = "rgba(18, 215, 202, 1)";
-        ctx.fillText(sparkleText[rndInt(0, sparkleText.length - 1)], tx, ty);
-        ctx.fillText(
-          sparkleText[rndInt(0, sparkleText.length - 1)],
-          tx + font_size,
-          ty + font_size
-        );
-        ctx.fillText(
-          sparkleText[rndInt(0, sparkleText.length - 1)],
-          tx - font_size,
-          ty + font_size
-        );
-      }
-      if (circle_buffer[index] === 2) {
-        ctx.fillStyle = "rgba(215, 18, 18, 1)";
-        ctx.fillText("FF", tx + font_size, ty + font_size);
-        ctx.fillText("90", tx - font_size, ty + font_size);
+      const cx = (tx / font_size) | 0;
+      const cy = (ty / font_size) | 0;
+
+      if (
+        cx >= 0 &&
+        cx < circle_buffer_width &&
+        cy >= 0 &&
+        cy < circle_buffer_height
+      ) {
+        const index = (cy * circle_buffer_width + cx) | 0;
+        if (circle_buffer[index] === 1) {
+          ctx.fillStyle = "rgba(18, 215, 202, 1)";
+          ctx.fillText(sparkleText[rndInt(0, sparkleTextLength - 1)], tx, ty);
+          ctx.fillText(
+            sparkleText[rndInt(0, sparkleTextLength - 1)],
+            tx + font_size,
+            ty + font_size
+          );
+          ctx.fillText(
+            sparkleText[rndInt(0, sparkleTextLength - 1)],
+            tx - font_size,
+            ty + font_size
+          );
+        }
+        if (circle_buffer[index] === 2) {
+          ctx.fillStyle = "rgba(215, 18, 18, 1)";
+          ctx.fillText("FF", tx + font_size, ty + font_size);
+          ctx.fillText("90", tx - font_size, ty + font_size);
+        }
       }
       ctx.fillStyle = baseCol;
 
-      if (drops[i] * font_size > canvas.height && Math.random() > 0.975) {
+      if (drops[i] * font_size > canvas.height && pcg() > 0.975) {
         drops[i] = 0;
       }
       drops[i]++;

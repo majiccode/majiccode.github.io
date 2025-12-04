@@ -2,20 +2,24 @@
 
 <div class="piano-controls-section">
   <div class="controls">
-    <button id="clearBtn">Clear</button>
-    <button id="playBtn">Play</button>
-    <button id="stopBtn">Stop</button>
+    <button id="clearBtn" class="btn">Clear</button>
+    <button id="playBtn" class="btn">Play</button>
+    <button id="stopBtn" class="btn">Stop</button>
   </div>
 
   <div class="song-selector">
     <label for="songSelect">Load Song:</label>
     <select id="songSelect">
       <option value="">-- Select a Song --</option>
+      <optgroup label="Themes">
+        <option value="star-wars">Star Wars Main Theme</option>
+        <option value="minder">Minder Theme</option>
+      </optgroup>
       <optgroup label="Ragtime & Honky Tonk">
         <option value="honky-tonk" selected>Honky Tonk Stomp</option>
       </optgroup>
     </select>
-    <button id="loadSongBtn">Load</button>
+    <button id="loadSongBtn" class="btn">Load</button>
 
     <label for="bpmSelect" style="margin-left: 20px">BPM:</label>
     <select id="bpmSelect">
